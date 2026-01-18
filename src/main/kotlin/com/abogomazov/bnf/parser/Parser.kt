@@ -19,30 +19,31 @@ class Parser(rules: List<Rule>) {
         return ParsingResult(tagsMap)
     }
 
-    private fun match(type: BnfType, ctx: ParseContext): Match? {
-        val result = when (type) {
+    private fun match(type: BnfType, ctx: ParseContext) =
+        when (type) {
             is BnfType.Literal -> matchLiteral(type, ctx)
             is BnfType.RegexMatch -> matchRegex(type, ctx)
             is BnfType.Sequence -> matchSequence(type, ctx)
             is BnfType.Choice -> matchChoice(type, ctx)
             is BnfType.Reference -> matchReference(type, ctx)
-        }
+        }?.also { it.node.addTags(type.tags) }
 
-        return result?.also { it.node.addTags(type.tags) }
-    }
-
-    private fun matchLiteral(type: BnfType.Literal, ctx: ParseContext): Match? {
-        return if (ctx.remaining().startsWith(type.value)) {
-            Match(ParseNode.Leaf(type.value), ctx.advance(type.value.length))
+    private fun matchLiteral(type: BnfType.Literal, ctx: ParseContext) =
+        if (ctx.remaining().startsWith(type.value)) {
+            Match(
+                node = ParseNode.Leaf(type.value),
+                nextContext = ctx.advance(type.value.length),
+            )
         } else null
-    }
 
     private fun matchRegex(type: BnfType.RegexMatch, ctx: ParseContext): Match? {
-        val regex = Regex("^${type.pattern}")
-        val result = regex.find(ctx.remaining())
-        return result?.let {
-            Match(ParseNode.Leaf(it.value), ctx.advance(it.value.length))
-        }
+        val res = "^${type.pattern}".toRegex().find(ctx.remaining())
+        return if (res != null) {
+            Match(
+                node = ParseNode.Leaf(res.value),
+                nextContext = ctx.advance(res.value.length),
+            )
+        } else null
     }
 
     private fun matchSequence(type: BnfType.Sequence, ctx: ParseContext): Match? {
@@ -56,11 +57,8 @@ class Parser(rules: List<Rule>) {
         return Match(ParseNode.Group(nodes), currentCtx)
     }
 
-    private fun matchChoice(type: BnfType.Choice, ctx: ParseContext): Match? {
-        return type.options.asSequence()
-            .mapNotNull { match(it, ctx) }
-            .firstOrNull()
-    }
+    private fun matchChoice(type: BnfType.Choice, ctx: ParseContext): Match? =
+        type.options.firstNotNullOfOrNull { match(it, ctx) }
 
     private fun matchReference(type: BnfType.Reference, ctx: ParseContext): Match? {
         val target = rules[type.name] ?: error("Rule ${type.name} not found")
