@@ -1,9 +1,10 @@
 plugins {
     kotlin("jvm") version "2.2.21"
+    `maven-publish`
 }
 
-group = "com.abogomazov"
-version = "1.0-SNAPSHOT"
+group = "com.abogomazov.bnf"
+version = "0.0.1"
 
 repositories {
     mavenCentral()
@@ -20,4 +21,8 @@ kotlin {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+tasks.jar {
+    archiveBaseName.set("bnf-engine")
 }
