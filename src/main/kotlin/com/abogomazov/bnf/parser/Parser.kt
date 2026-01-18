@@ -8,81 +8,81 @@ class Parser(rules: List<Rule>) {
     private val rules = rules.associateBy { it.symbol }.toMutableMap()
 
     fun parse(ruleName: Enum<*>, input: String): ParsingResult {
-        val startRule = rules[ruleName] ?: error("Rule $ruleName not found")
-        val matchResult = match(startRule.type, ParseContext(input)) ?: error("Invalid input")
+        val startRule = rules[ruleName]
+            ?: throw IllegalArgumentException("Rule $ruleName not found in grammar")
 
-        val result = mutableMapOf<Enum<*>, String>()
+        val context = ParseContext(input)
+        val matchResult = match(startRule.type, context)
+            ?: throw IllegalStateException("Syntax error: could not match $ruleName at position ${context.position}")
 
-        fun collect(node: ParseNode) {
-            if (node.tags.isNotEmpty()) {
-                node.tags.forEach { tag ->
-                    if (!result.containsKey(tag)) {
-                        result[tag] = node.text()
-                    }
-                }
-            }
-
-            if (node is ParseNode.Group) {
-                node.children.forEach { collect(it) }
-            }
-        }
-
-        collect(matchResult.node)
-        return ParsingResult(result)
+        val tagsMap = collectTags(matchResult.node)
+        return ParsingResult(tagsMap)
     }
 
     private fun match(type: BnfType, ctx: ParseContext): Match? {
-        val m = when (type) {
-            is BnfType.Literal -> {
-                if (ctx.remaining().startsWith(type.value)) {
-                    Match(ParseNode.Leaf(type.value), ctx.advance(type.value.length))
-                } else null
+        val result = when (type) {
+            is BnfType.Literal -> matchLiteral(type, ctx)
+            is BnfType.RegexMatch -> matchRegex(type, ctx)
+            is BnfType.Sequence -> matchSequence(type, ctx)
+            is BnfType.Choice -> matchChoice(type, ctx)
+            is BnfType.Reference -> matchReference(type, ctx)
+        }
+
+        return result?.also { it.node.addTags(type.tags) }
+    }
+
+    private fun matchLiteral(type: BnfType.Literal, ctx: ParseContext): Match? {
+        return if (ctx.remaining().startsWith(type.value)) {
+            Match(ParseNode.Leaf(type.value), ctx.advance(type.value.length))
+        } else null
+    }
+
+    private fun matchRegex(type: BnfType.RegexMatch, ctx: ParseContext): Match? {
+        val regex = Regex("^${type.pattern}")
+        val result = regex.find(ctx.remaining())
+        return result?.let {
+            Match(ParseNode.Leaf(it.value), ctx.advance(it.value.length))
+        }
+    }
+
+    private fun matchSequence(type: BnfType.Sequence, ctx: ParseContext): Match? {
+        val nodes = mutableListOf<ParseNode>()
+        var currentCtx = ctx
+        for (part in type.parts) {
+            val m = match(part, currentCtx) ?: return null
+            nodes.add(m.node)
+            currentCtx = m.nextContext
+        }
+        return Match(ParseNode.Group(nodes), currentCtx)
+    }
+
+    private fun matchChoice(type: BnfType.Choice, ctx: ParseContext): Match? {
+        return type.options.asSequence()
+            .mapNotNull { match(it, ctx) }
+            .firstOrNull()
+    }
+
+    private fun matchReference(type: BnfType.Reference, ctx: ParseContext): Match? {
+        val target = rules[type.name] ?: error("Rule ${type.name} not found")
+        return match(target.type, ctx)?.also {
+            it.node.tags.add(target.symbol)
+        }
+    }
+
+    private fun collectTags(root: ParseNode): Map<Enum<*>, String> {
+        val result = mutableMapOf<Enum<*>, String>()
+
+        fun walk(node: ParseNode) {
+            if (node is ParseNode.Group) {
+                node.children.forEach { walk(it) }
             }
 
-            is BnfType.RegexMatch -> {
-                val regex = Regex("^${type.pattern}")
-                val result = regex.find(ctx.remaining())
-                if (result != null) {
-                    Match(ParseNode.Leaf(result.value), ctx.advance(result.value.length))
-                } else null
-            }
-
-            is BnfType.Sequence -> {
-                val nodes = mutableListOf<ParseNode>()
-                var currentCtx = ctx
-                for (part in type.parts) {
-                    val m = match(part, currentCtx) ?: return null
-                    nodes.add(m.node)
-                    currentCtx = m.nextContext
-                }
-                Match(ParseNode.Group(nodes), currentCtx)
-            }
-
-            is BnfType.Choice -> {
-                type.options.asSequence()
-                    .mapNotNull { match(it, ctx) }
-                    .firstOrNull()
-            }
-
-            is BnfType.Reference -> {
-                val target = rules[type.name] ?: error("Rule ${type.name} not found")
-
-                val m = match(target.type, ctx)
-
-                if (m != null) {
-                    m.node.addTags(type.tags)
-
-                    m.node.tags.add(target.symbol)
-
-                    m
-                } else null
+            node.tags.forEach { tag ->
+                result[tag] = node.text()
             }
         }
 
-        if (m != null && type.tags.isNotEmpty()) {
-            m.node.addTags(type.tags)
-        }
-
-        return m
+        walk(root)
+        return result
     }
 }
