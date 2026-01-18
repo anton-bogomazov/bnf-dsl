@@ -1,4 +1,4 @@
-package com.abogomazov
+package com.abogomazov.com.abogomazov.bnf
 
 sealed class BnfType {
     var tags: MutableList<Enum<*>> = mutableListOf()
@@ -15,14 +15,6 @@ sealed class BnfType {
     }
 }
 
-data class ParsingResult(
-    private val groups: Map<Enum<*>, String>
-) {
-    fun text(symbol: Enum<*>) = textOrNull(symbol)!!
-    fun textOrNull(symbol: Enum<*>) = groups[symbol]
-    fun long(symbol: Enum<*>) = groups[symbol]!!.toLong()
-}
-
 class Grammar(rules: List<Rule>) {
     private val rules = rules.associateBy { it.symbol }.toMutableMap()
 
@@ -35,7 +27,9 @@ class Grammar(rules: List<Rule>) {
         fun collect(node: ParseNode) {
             if (node.tags.isNotEmpty()) {
                 node.tags.forEach { tag ->
-                    result[tag] = node.text()
+                    if (!result.containsKey(tag)) {
+                        result[tag] = node.text()
+                    }
                 }
             }
 

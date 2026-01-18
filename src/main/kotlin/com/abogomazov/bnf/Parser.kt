@@ -1,4 +1,4 @@
-package com.abogomazov
+package com.abogomazov.com.abogomazov.bnf
 
 sealed class ParseNode {
     val tags = mutableSetOf<Enum<*>>()

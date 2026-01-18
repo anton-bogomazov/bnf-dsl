@@ -1,4 +1,4 @@
-package com.abogomazov
+package com.abogomazov.com.abogomazov.bnf
 
 @DslMarker
 annotation class BnfDsl
@@ -43,6 +43,6 @@ class RuleBuilder {
     }
 }
 
-fun bnf(block: GrammarBuilder.() -> Unit): Grammar {
+fun format(block: GrammarBuilder.() -> Unit): Grammar {
     return GrammarBuilder().apply(block).build()
 }
