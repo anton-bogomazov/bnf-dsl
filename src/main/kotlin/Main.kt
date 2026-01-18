@@ -1,16 +1,63 @@
 package com.abogomazov
 
-//TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
-// click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
-fun main() {
-    val name = "Kotlin"
-    //TIP Press <shortcut actionId="ShowIntentionActions"/> with your caret at the highlighted text
-    // to see how IntelliJ IDEA suggests fixing it.
-    println("Hello, " + name + "!")
+data class Semver(
+    val major: Long,
+    val minor: Long,
+    val patch: Long,
+    val preRelease: String? = null,
+    val build: String? = null,
+) {
+    companion object {
+        enum class Sym {
+            FullSemVer, Core, Major, Minor, Patch, PreRelease, Build, Alphanumeric, Numeric
+        }
 
-    for (i in 1..5) {
-        //TIP Press <shortcut actionId="Debug"/> to start debugging your code. We have set one <icon src="AllIcons.Debugger.Db_set_breakpoint"/> breakpoint
-        // for you, but you can always add more by pressing <shortcut actionId="ToggleLineBreakpoint"/>.
-        println("i = $i")
+        val grammar = bnf {
+            symbol(Sym.FullSemVer) {
+                oneOf(
+                    seq(Sym.Core.nt, "-".l, Sym.PreRelease.nt, "+".l, Sym.Build.nt),
+                    seq(Sym.Core.nt, "-".l, Sym.PreRelease.nt),
+                    seq(Sym.Core.nt, "+".l, Sym.Build.nt),
+                    Sym.Core.nt
+                )
+            }
+            symbol(Sym.Core) { seq(Sym.Major.nt, ".".l, Sym.Minor.nt, ".".l, Sym.Patch.nt) }
+            symbol(Sym.PreRelease) {
+                oneOf(
+                    seq(Sym.Alphanumeric.nt, ".".l, Sym.PreRelease.nt),
+                    Sym.Alphanumeric.nt
+                )
+            }
+            symbol(Sym.Build) {
+                oneOf(
+                    seq(Sym.Alphanumeric.nt, ".".l, Sym.Build.nt),
+                    Sym.Alphanumeric.nt
+                )
+            }
+
+            symbol(Sym.Alphanumeric) { "[0-9a-zA-Z-]+".r }
+            symbol(Sym.Numeric) { "[0-9]+".r }
+
+            symbol(Sym.Major) { Sym.Numeric.nt }
+            symbol(Sym.Minor) { Sym.Numeric.nt }
+            symbol(Sym.Patch) { Sym.Numeric.nt }
+        }
+
+        fun parse(input: String): Semver {
+            val result = grammar.parse(Sym.FullSemVer, input)
+
+            return Semver(
+                major = result.long(Sym.Major),
+                minor = result.long(Sym.Minor),
+                patch = result.long(Sym.Patch),
+                preRelease = result.textOrNull(Sym.PreRelease),
+                build = result.textOrNull(Sym.PreRelease),
+            )
+        }
     }
+}
+
+fun main() {
+    val s = Semver.parse("10.2.3")
+    println(s)
 }
