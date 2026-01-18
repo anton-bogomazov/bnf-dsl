@@ -1,5 +1,6 @@
-package com.abogomazov.com.abogomazov.bnf
+package com.abogomazov.com.abogomazov.bnf.parser.result
 
+import kotlin.collections.get
 import kotlin.reflect.KClass
 
 data class ParsingResult(
@@ -20,17 +21,5 @@ data class ParsingResult(
         }
 
         return constructor.callBy(args)
-    }
-}
-
-class MappingBuilder<T>(private val result: ParsingResult) {
-    val mappings = mutableMapOf<String, Any?>()
-
-    infix fun Enum<*>.to(property: kotlin.reflect.KProperty1<T, out Any?>) {
-        val value = when (property.returnType.classifier) {
-            Long::class -> result.long(this)
-            else -> result.textOrNull(this)
-        }
-        mappings[property.name] = value
     }
 }

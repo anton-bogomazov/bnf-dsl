@@ -1,21 +1,10 @@
-package com.abogomazov.com.abogomazov.bnf
+package com.abogomazov.com.abogomazov.bnf.parser
 
-sealed class BnfType {
-    var tags: MutableList<Enum<*>> = mutableListOf()
+import com.abogomazov.com.abogomazov.bnf.grammar.Rule
+import com.abogomazov.com.abogomazov.bnf.grammar.BnfType
+import com.abogomazov.com.abogomazov.bnf.parser.result.ParsingResult
 
-    data class Literal(val value: String) : BnfType()
-    data class RegexMatch(val pattern: String) : BnfType()
-    data class Sequence(val parts: List<BnfType>) : BnfType()
-    data class Reference(val name: Enum<*>) : BnfType()
-    data class Choice(val options: List<BnfType>) : BnfType()
-
-    fun tag(t: Enum<*>?) {
-        if (t == null) return
-        tags.add(t)
-    }
-}
-
-class Grammar(rules: List<Rule>) {
+class Parser(rules: List<Rule>) {
     private val rules = rules.associateBy { it.symbol }.toMutableMap()
 
     fun parse(ruleName: Enum<*>, input: String): ParsingResult {
